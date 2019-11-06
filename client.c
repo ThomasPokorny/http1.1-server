@@ -28,34 +28,14 @@
 #include <time.h>
 #include <string.h>
 #include <dirent.h>
+#include "util.h"
+#include "client.h"
 #define _GNU_SOURCE
 
 #define ERROR_EXIT(...) { fprintf(stderr, "ERROR: " __VA_ARGS__); exit(EXIT_FAILURE); }
 
-typedef struct Connections {
-   char host[50];
-   char path[50];
-   char *port;
-} Connection;
-
-typedef struct SaveInformations {
-   char *fileName;
-   char *filePath;
-   bool writeToFile;
-   bool hasFile;
-   bool hasDir;
-} SaveInformation;
-
+/* SET THIS FLAG TO true IF DEBUG MSGs TO sdtout ARE WANTED */ 
 const bool DEBUG = true;
-
-void printSynopsis();
-void debugLog(char *m, char* obj);
-void getHostandPath(char * connectionUrl, char *hostname, char *path);
-int connectToHost(SaveInformation saveInformation, Connection connection);
-void createOutputSettings(SaveInformation *saveInformation, Connection connection);
-bool startsWith(const char *pre, const char *str);
-char *removeString(char *str, const char *sub);
-
 
 int main(int argc, char *argv[]){
 
@@ -400,22 +380,3 @@ void createOutputSettings(SaveInformation *saveInformation, Connection connectio
     if(allocated == true)
         free(indexFile);
 }
-
-bool startsWith(const char *pre, const char *str)
-{
-    size_t lenpre = strlen(pre),
-           lenstr = strlen(str);
-    return lenstr < lenpre ? false : memcmp(pre, str, lenpre) == 0;
-}
-
-char *removeString(char *str, const char *sub) {
-    size_t len = strlen(sub);
-    if (len > 0) {
-        char *p = str;
-        while ((p = strstr(p, sub)) != NULL) {
-            memmove(p, p + len, strlen(p + len) + 1);
-        }
-    }
-    return str;
-}
-
