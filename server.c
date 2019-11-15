@@ -195,18 +195,16 @@ int startSocket(ServerConf serverConf){
                 strcat(filePath, serverConf.documentRoot);
                 strcat(filePath, serverConf.indexFile);
 
-                if(DEBUG == true) {
-                    debugLog("sending file", filePath);
-                }
-
+                // FILE *f = fopen("a/index.html", "r");
                 FILE *f = fopen(filePath, "r");
                 sendContent(write_sockfile, f);
 
                 fclose(f);
                 // fprintf(write_sockfile, "%s", "seas");
 
-                fflush(write_sockfile);
+                //fflush(write_sockfile);
                 free(filePath);
+                fflush(write_sockfile);
             }
             closeConnection(sockfile, write_sockfile, client_socket_fd); 
         }
@@ -268,7 +266,6 @@ void sendValidHeader(FILE *write_sockfile, char *code){
     fprintf(write_sockfile, "%s", "\n\r");
     fprintf(write_sockfile, "%s", "\n\r");
 
-    fflush(write_sockfile);
 
     free(headerLine);
 }
