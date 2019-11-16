@@ -35,7 +35,7 @@
 #define ERROR_EXIT(...) { fprintf(stderr, "ERROR: " __VA_ARGS__); exit(EXIT_FAILURE); }
 
 /* SET THIS FLAG TO true IF DEBUG MSGs TO sdtout ARE WANTED */ 
-const bool DEBUG = true;
+const bool DEBUG = false;
 
 int main(int argc, char *argv[]){
 

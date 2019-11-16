@@ -28,6 +28,7 @@
 #include <time.h>
 #include <string.h>
 #include <dirent.h>
+#include <signal.h>
 #include "server.h"
 #include "util.h"
 #define SA struct sockaddr 
@@ -37,7 +38,17 @@
 /* SET THIS FLAG TO true IF DEBUG MSGs TO sdtout ARE WANTED */ 
 const bool DEBUG = true;
 
+/* this is the runnig flag, if the flag is 0, the server finishes all ungoing requests and terminates with exit code 0 */
+static volatile int SERVER_RUNNING = 1;
+static volatile int REQUEST_RUNNING = 0;
+
+static int sockfd, client_socket_fd;
+
 int main(int argc, char *argv[]){
+
+    // setting up signal receiving
+    signal(SIGINT, receiveSignal);
+    signal(SIGTERM, receiveSignal);
 
     // NOTE: port index and doc-root
     ServerConf serverConf;
@@ -95,7 +106,7 @@ int main(int argc, char *argv[]){
 
 int startSocket(ServerConf serverConf){
 
-    int sockfd; 
+    // int sockfd; 
     struct addrinfo hints, cli;
     socklen_t len;
     memset(&hints, 0, sizeof(hints));
@@ -113,9 +124,13 @@ int startSocket(ServerConf serverConf){
     sockfd = socket(AF_INET, SOCK_STREAM, 0); 
     if (sockfd < 0)
         ERROR_EXIT("socket: %s\n", strerror(errno));
-        //BIND
-    if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
+    // release socket after close 
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0){
         ERROR_EXIT("socket bind failed...%s\n", strerror(errno));
+    }
+    //BIND
+    if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
+        ERROR_EXIT("socket SO_REUSEADDR failed...%s\n", strerror(errno));
     } 
     else
         debugLog("bind", "Socket successfully binded..");
@@ -131,12 +146,13 @@ int startSocket(ServerConf serverConf){
     len = sizeof(cli); 
 
     // infinite loop that accepts requests from client
-    for(;;){
-        int client_socket_fd;
+    while(SERVER_RUNNING == 1){
+
+        // int client_socket_fd;
         client_socket_fd = accept(sockfd, (SA*)&cli, &len);
 
         if(DEBUG == true) {
-            debugLog("accept", "server waiting for clients to connect");
+            debugLog("accept", "client connection!");
         }
 
         FILE *sockfile = fdopen(client_socket_fd, "r");
@@ -154,13 +170,9 @@ int startSocket(ServerConf serverConf){
             char *reqFile; 
             char *method;
             char * protocol; 
-            // char bufCopy[1024];
-            // strcpy (bufCopy, buf);
-
-
+           
             char * token = strtok(buf, " ");
             int wordCount = 0;
-            debugLog("b1", buf);
             while( token != NULL ) {
                 wordCount ++;
                 if(wordCount == 1)
@@ -179,14 +191,14 @@ int startSocket(ServerConf serverConf){
                 if(DEBUG == true) {
                     debugLog("processing request", "400 Bad request");
                 }
-                sendInvalidHeader(write_sockfile, "400");
+                sendInvalidHeader(write_sockfile, "400", "Bad Request");
             }
             else if(startsWith("GET", method) == false){
                 // TODO send 501 and close all connections
                 if(DEBUG == true) {
                     debugLog("processing request", "501 not implemented");
                 }
-                sendInvalidHeader(write_sockfile, "501");               
+                sendInvalidHeader(write_sockfile, "501", "Not implemented");               
             }
             // processing valid request
             else{
@@ -218,30 +230,31 @@ int startSocket(ServerConf serverConf){
 
                 FILE *f = fopen(filePath, "r");
                 free(filePath);
-                //free(reqFile);
-                //free(method);
-                // free(protocol);
 
                 // if the file does not exist, sending error 404
                 if (f == NULL){
                     if(DEBUG == true) {
                         debugLog("cannot find requested file!", "ERROR 404");
                     }
-
-                    //sendValidHeader(write_sockfile);
+                    sendInvalidHeader(write_sockfile, "404", "Not Found");
                 }
                 else
                 {
+                    fseek(f, 0 , SEEK_END);
+                    long fileSize = ftell(f);
+                    fseek(f, 0 , SEEK_SET);
+
                     // sending header
-                    sendValidHeader(write_sockfile);
+                    sendValidHeader(write_sockfile, fileSize);
                     sendContent(write_sockfile, f);
                 }
                 
 
                 fclose(f);
-                fflush(write_sockfile);
             }
+            fflush(write_sockfile);
             closeConnection(sockfile, write_sockfile, client_socket_fd); 
+            REQUEST_RUNNING = 0;
         }
 
         if(DEBUG == true) {
@@ -261,18 +274,17 @@ void closeConnection(FILE *sockfile, FILE *write_sockfile, int client_socket_fd)
     close(client_socket_fd); 
 }
 
-void sendInvalidHeader(FILE *write_sockfile, char *code){
-    char *headerLine = malloc(strlen(code) + strlen("HTTP/1.1") + strlen("OK") + 2);
+void sendInvalidHeader(FILE *write_sockfile, char *code, char *msg){
+    char *headerLine = calloc(strlen(code) + strlen("HTTP/1.1") + strlen(msg) + 2, sizeof(char));
     strcat(headerLine, "HTTP/1.1 ");
     strcat(headerLine, code);
     strcat(headerLine, " ");
-    strcat(headerLine, "OK");
+    strcat(headerLine, msg);
 
-    fprintf(write_sockfile, "%s", headerLine);
-    fprintf(write_sockfile, "%s", "Connection: close");
-    //fprintf(write_sockfile, "%s", "\n\r");
-    fflush(write_sockfile);
-
+    fprintf(write_sockfile, "%s\n", headerLine);
+    fprintf(write_sockfile, "%s\n", "Connection: close");
+    fprintf(write_sockfile, "%s", "\n");
+    
     free(headerLine);
 }
 
@@ -287,12 +299,37 @@ void sendContent(FILE *write_sockfile, FILE *f){
     free(line);
 }
 
-void sendValidHeader(FILE *write_sockfile){
+void sendValidHeader(FILE *write_sockfile, long fileSize){
     char *headerLine = "HTTP/1.1 200 OK";
 
+    // geting the UTC timestamp!, in RFC 822 format
+    time_t clk = time(NULL);
+
+    struct tm * ptm;
+    ptm = gmtime ( &clk );
+    time_t utctime = mktime(ptm);
+
     fprintf(write_sockfile, "%s\n", headerLine);
+    fprintf(write_sockfile, "%s", "Date: ");
+    fprintf(write_sockfile, "%s", ctime(&utctime));
+    fprintf(write_sockfile, "%s", "Content-Length: ");
+    fprintf(write_sockfile, "%ld\n", fileSize);
     fprintf(write_sockfile, "%s\n", "Connection: close");
     fprintf(write_sockfile, "%s", "\n");
+
+}
+
+void receiveSignal(int i){
+    SERVER_RUNNING = 0;
+
+    if(DEBUG == true) {
+        debugLog("signal received: SIGINT or SIGTERM","terminating server!");
+    }
+    if(REQUEST_RUNNING == 0){
+        close(sockfd); 
+        close(client_socket_fd);
+        exit(0);
+    }
 }
 
 /**
