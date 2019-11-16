@@ -1,7 +1,7 @@
 /********************************************//**
  *  SOME C UTIL FUNCTIO S 
  * 
- * @file util.h
+ * @file client.h
  * @author Thomas Robert Pokorny 1527212
  * 
  * @date 4 Nov 2019

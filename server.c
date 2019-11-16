@@ -154,9 +154,13 @@ int startSocket(ServerConf serverConf){
             char *reqFile; 
             char *method;
             char * protocol; 
+            // char bufCopy[1024];
+            // strcpy (bufCopy, buf);
+
 
             char * token = strtok(buf, " ");
             int wordCount = 0;
+            debugLog("b1", buf);
             while( token != NULL ) {
                 wordCount ++;
                 if(wordCount == 1)
@@ -168,6 +172,7 @@ int startSocket(ServerConf serverConf){
         
                 token = strtok(NULL, " ");
             }
+            free(token);
 
             // checking for invalid header
             if(wordCount != 3 || startsWith("HTTP/1.1", protocol) == false){
@@ -189,10 +194,23 @@ int startSocket(ServerConf serverConf){
                 if(DEBUG == true) {
                     debugLog("processing request", "valid Get request!");
                 }
+
                 char *filePath;
-                filePath = malloc(strlen(serverConf.documentRoot) + strlen(serverConf.indexFile));
-                strcat(filePath, serverConf.documentRoot);
-                strcat(filePath, serverConf.indexFile);
+                if(reqFile[strlen(reqFile) -1 ] == '/'){
+                    filePath = calloc(strlen(serverConf.documentRoot) + strlen(reqFile) + strlen(serverConf.indexFile), sizeof(char)); 
+                    strcat(filePath, serverConf.documentRoot);
+                    strcat(filePath, reqFile);
+                    strcat(filePath, serverConf.indexFile);
+                    
+
+                }else{
+                    filePath = calloc(strlen(serverConf.documentRoot) + strlen(reqFile), sizeof(char)); 
+
+                    strcat(filePath, serverConf.documentRoot);
+                    strcat(filePath, reqFile);
+
+                }
+             
 
                 if(DEBUG == true) {
                     debugLog("transmitting file", filePath);
@@ -200,14 +218,17 @@ int startSocket(ServerConf serverConf){
 
                 FILE *f = fopen(filePath, "r");
                 free(filePath);
-                
+                //free(reqFile);
+                //free(method);
+                // free(protocol);
+
                 // if the file does not exist, sending error 404
                 if (f == NULL){
                     if(DEBUG == true) {
                         debugLog("cannot find requested file!", "ERROR 404");
                     }
 
-                    sendInvalidHeader(write_sockfile, "501");    
+                    //sendValidHeader(write_sockfile);
                 }
                 else
                 {
@@ -249,7 +270,7 @@ void sendInvalidHeader(FILE *write_sockfile, char *code){
 
     fprintf(write_sockfile, "%s", headerLine);
     fprintf(write_sockfile, "%s", "Connection: close");
-    fprintf(write_sockfile, "%s", "\n\r");
+    //fprintf(write_sockfile, "%s", "\n\r");
     fflush(write_sockfile);
 
     free(headerLine);
@@ -269,11 +290,9 @@ void sendContent(FILE *write_sockfile, FILE *f){
 void sendValidHeader(FILE *write_sockfile){
     char *headerLine = "HTTP/1.1 200 OK";
 
-    fprintf(write_sockfile, "%s", headerLine);
-    fprintf(write_sockfile, "%s", "\n\r");
-    fprintf(write_sockfile, "%s", "Connection: close");
-    fprintf(write_sockfile, "%s", "\n\r");
-    fprintf(write_sockfile, "%s", "\n\r");
+    fprintf(write_sockfile, "%s\n", headerLine);
+    fprintf(write_sockfile, "%s\n", "Connection: close");
+    fprintf(write_sockfile, "%s", "\n");
 }
 
 /**

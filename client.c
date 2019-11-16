@@ -184,10 +184,13 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
         if(DEBUG == true) {
             debugLog("saving response into file", saveInformation.fileName);
         }
+
+        printf("the out file %s\n", saveInformation.fileName);
         FILE * outFile = fopen(saveInformation.fileName, "w+");
 
         bool headerChecked = false;
         while (fgets(buf, sizeof(buf), sockfile) != NULL){
+            fputs(buf, stdout);
             if(headerChecked == false){
                 bool isHeaderCorrect = startsWith("HTTP/1.1", buf);
 
@@ -222,7 +225,7 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
 
             if(isContent == true)
                 fputs(buf, outFile);
-            if(buf[0] == '\r')
+            if(buf[0] == '\r' || buf[0] == '\n')
                 isContent = true;
         }
         fclose(outFile);
@@ -232,6 +235,7 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
     else{
         bool headerChecked = false;
         while (fgets(buf, sizeof(buf), sockfile) != NULL){
+            // fputs(buf, stdout);
             if(headerChecked == false){
                 bool isHeaderCorrect = startsWith("HTTP/1.1", buf);
 
@@ -266,7 +270,7 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
 
             if(isContent == true)
                 fputs(buf, stdout);
-            if(buf[0] == '\r')
+            if(buf[0] == '\r' || buf[0] == '\n')
                 isContent = true;
         }
     }
@@ -334,35 +338,34 @@ void createOutputSettings(SaveInformation *saveInformation, Connection connectio
     
     char *indexFile;
     bool allocated = false;
-
-    // seacrh for the last '/' in the path, this is going to be the file name
-    long pos = strrchr(connection.path, '/') -connection.path;
+    char *filePath;
 
     if(saveInformation->hasFile == true){
         indexFile = malloc(strlen(saveInformation->fileName)); 
         indexFile = saveInformation->fileName;
         allocated = true;
-    }else if (pos != 0){
+    }
+    else if(connection.path[strlen(connection.path) -1 ] == '/'){
+        indexFile = "index.html";
+    }else{
 
-        indexFile = malloc(strlen(connection.path) - pos); 
+        long pos = strrchr(connection.path, '/') -connection.path;
+
+        indexFile = calloc(strlen(connection.path) , sizeof(char)); 
+        allocated = true;
+
         int runningIndex = 0;
         for (int i = (pos +1); connection.path[i]; i++) {
             indexFile[runningIndex] = connection.path[i];
             runningIndex ++;
         }
-        allocated = true;
 
         if(DEBUG == true) {
             debugLog("generated file name", indexFile);
         }
-
-    }else{
-        indexFile = "index.html";
     }
 
-
-    char *filePath;
-    if( 1 == 2 && saveInformation->hasDir == true && saveInformation->filePath[0] != '.'){
+    if(saveInformation->hasDir == true && saveInformation->filePath[0] != '.'){
         
         filePath = malloc(strlen(saveInformation->filePath) + strlen(indexFile) + 1); 
         strcat(filePath, saveInformation->filePath); 
