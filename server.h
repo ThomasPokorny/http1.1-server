@@ -24,7 +24,7 @@ void debugLog(char *m, char* obj);
 int startSocket(ServerConf serverConf);
 void closeConnection(FILE *sockfile, FILE *write_sockfile, int client_socket_fd);
 void sendInvalidHeader(FILE *write_sockfile, char *code);
-void sendValidHeader(FILE *write_sockfile, char *code);
+void sendValidHeader(FILE *write_sockfile);
 void sendContent(FILE *sockfile, FILE *write_sockfile);
 
 #endif 
