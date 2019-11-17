@@ -43,6 +43,16 @@ static volatile int REQUEST_RUNNING = 0;
 
 static int sockfd, client_socket_fd;
 
+/* functions used by the server */
+static int startSocket(ServerConf serverConf);
+static void closeConnection(FILE *sockfile, FILE *write_sockfile, int client_socket_fd);
+static void sendInvalidHeader(FILE *write_sockfile, char *code, char *msg);
+static void sendContent(FILE *write_sockfile, FILE *f);
+static void sendValidHeader(FILE *write_sockfile, long fileSize);
+static void receiveSignal(int i);
+static void printSynopsis();
+static void debugLog(char *m, char* obj);
+
 int main(int argc, char *argv[]){
 
     // setting up signal receiving
@@ -55,7 +65,8 @@ int main(int argc, char *argv[]){
     serverConf.indexFile        = "index.html";
     serverConf.documentRoot     = ".";
 
-    // TODO: free memory
+    bool allocatedIndex         = false; 
+
     int optIndex = 0;
     int opt;
     while((opt = getopt(argc, argv, "p:i:")) != -1)  
@@ -63,7 +74,7 @@ int main(int argc, char *argv[]){
         switch(opt)  
         {  
             case 'p':
-                serverConf.port = atoi(strdup(optarg));
+                serverConf.port = strtol(strdup(optarg),NULL,10);
                 optIndex = optIndex + 2;
                 break;
             case ':':  
@@ -71,17 +82,20 @@ int main(int argc, char *argv[]){
             case 'i':  
                 serverConf.indexFile = strdup(optarg);
                 optIndex = optIndex + 2;
+                allocatedIndex  = true;
                 break; 
             case '?':  
-                //wrongArgument = true;
+                //assert(0); compiles with warning  warning: implicit declaration of function 'assert' is invalid in C99, and C99 should be used.
                 break;   
             default:
+                //assert(0); compiles with warning  warning: implicit declaration of function 'assert' is invalid in C99, and C99 should be used.
                 break;
         }  
     }  
 
     if (argv[optIndex + 1] == NULL) {
-        ERROR_EXIT("Mandatory argument  missing: DOC_ROOT %s\n", strerror(errno));
+        ERROR_EXIT("server, Mandatory argument  missing: DOC_ROOT %s\n", strerror(errno));
+        printSynopsis();
         exit(1);
     }
     serverConf.documentRoot = argv[(optIndex + 1)];
@@ -98,6 +112,8 @@ int main(int argc, char *argv[]){
 
     int exitCode = startSocket(serverConf);
 
+    if(allocatedIndex == true)
+        free(serverConf.indexFile);
 
     return exitCode;
 }
@@ -106,7 +122,7 @@ int main(int argc, char *argv[]){
  * @brief the server is started, and awaits clients
  * @param serverConf server configuration: port, index file and docuemtn root
  */ 
-int startSocket(ServerConf serverConf){
+static int startSocket(ServerConf serverConf){
 
     // int sockfd; 
     struct addrinfo hints, cli;
@@ -125,14 +141,14 @@ int startSocket(ServerConf serverConf){
     // SOCKET
     sockfd = socket(AF_INET, SOCK_STREAM, 0); 
     if (sockfd < 0)
-        ERROR_EXIT("socket: %s\n", strerror(errno));
+        ERROR_EXIT("server, socket: %s\n", strerror(errno));
     // release socket after close 
     int option = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
     
     //BIND
     if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
-        ERROR_EXIT("socket SO_REUSEADDR failed...%s\n", strerror(errno));
+        ERROR_EXIT("server, socket SO_REUSEADDR failed...%s\n", strerror(errno));
     } 
     else if(DEBUG == true) 
         debugLog("bind", "Socket successfully binded..");
@@ -140,7 +156,7 @@ int startSocket(ServerConf serverConf){
 
     // LISTEN 
     if ((listen(sockfd, 5)) != 0) { 
-        ERROR_EXIT("socket listen failed...%s\n", strerror(errno));
+        ERROR_EXIT("server, socket listen failed...%s\n", strerror(errno));
         exit(0); 
     } 
     else if(DEBUG == true) 
@@ -276,7 +292,7 @@ int startSocket(ServerConf serverConf){
  * @param write_sockFile the out socket file to the client
  * @param client_socket_fd the client file descriptor
  */ 
-void closeConnection(FILE *sockfile, FILE *write_sockfile, int client_socket_fd){
+static void closeConnection(FILE *sockfile, FILE *write_sockfile, int client_socket_fd){
     fclose(sockfile); 
     fclose(write_sockfile); 
     close(client_socket_fd); 
@@ -288,7 +304,7 @@ void closeConnection(FILE *sockfile, FILE *write_sockfile, int client_socket_fd)
  * @param code the http return code, 404 , 400, 501, ..
  * @param msg the message: "Not Found", "Not implemented", "Bad Request" , ...
  */ 
-void sendInvalidHeader(FILE *write_sockfile, char *code, char *msg){
+static void sendInvalidHeader(FILE *write_sockfile, char *code, char *msg){
     char *headerLine = calloc(strlen(code) + strlen("HTTP/1.1") + strlen(msg) + 2, sizeof(char));
     strcat(headerLine, "HTTP/1.1 ");
     strcat(headerLine, code);
@@ -307,7 +323,7 @@ void sendInvalidHeader(FILE *write_sockfile, char *code, char *msg){
  * @param write_sockfile the out socket file to the client
  * @param f the file that is going to be transmitted
  */ 
-void sendContent(FILE *write_sockfile, FILE *f){
+static void sendContent(FILE *write_sockfile, FILE *f){
     size_t maxlenght = 256;
     char *line = malloc(maxlenght * sizeof(char));
 
@@ -323,7 +339,7 @@ void sendContent(FILE *write_sockfile, FILE *f){
  * @param write_sockfile the out socket file to the client
  * @param fileSize the filesize that is going to be transmitted
  */ 
-void sendValidHeader(FILE *write_sockfile, long fileSize){
+static void sendValidHeader(FILE *write_sockfile, long fileSize){
     char *headerLine = "HTTP/1.1 200 OK";
 
     // geting the UTC timestamp!, in RFC 822 format
@@ -346,7 +362,7 @@ void sendValidHeader(FILE *write_sockfile, long fileSize){
 /**
  * @brief receives signals SIGINT, SIGTERM. if the server is not currently processing a client, the exit() function is called
  */ 
-void receiveSignal(int i){
+static void receiveSignal(int i){
     SERVER_RUNNING = 0;
 
     if(DEBUG == true) {
@@ -364,7 +380,7 @@ void receiveSignal(int i){
  * @brief prints the calling synopsis of the http server 
  * @return Void
  **/
-void printSynopsis(){
+static void printSynopsis(){
     char *synopsis = "Illegal Arguments given! SYNOPSIS: \nserver [-p PORT] [-i INDEX] DOC_ROOT";
     printf("%s\n", synopsis);
 }
@@ -374,7 +390,7 @@ void printSynopsis(){
  * @param m the message titel
  * @param obj the message
  */ 
-void debugLog(char *m, char* obj){
+static void debugLog(char *m, char* obj){
     printf("DEBUG: '%s': ", m);
     printf("%s\n", obj);
 }

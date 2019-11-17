@@ -35,6 +35,12 @@
 /* SET THIS FLAG TO true IF DEBUG MSGs TO sdtout ARE WANTED */ 
 const bool DEBUG = false;
 
+static int connectToHost(SaveInformation saveInformation, Connection connection);
+static void printSynopsis();
+static void debugLog(char *m, char* obj);
+static void getHostandPath(char * connectionUrl, char *hostname, char *path);
+static void createOutputSettings(SaveInformation *saveInformation, Connection connection);
+
 int main(int argc, char *argv[]){
     
     int exitCode = EXIT_SUCCESS; 
@@ -71,9 +77,10 @@ int main(int argc, char *argv[]){
                 saveInformation.hasDir      = true;
                 break; 
             case '?':  
-                //wrongArgument = true;
+                //assert(0); compiles with warning  warning: implicit declaration of function 'assert' is invalid in C99, and C99 should be used.
                 break;   
             default:
+                //assert(0); compiles with warning  warning: implicit declaration of function 'assert' is invalid in C99, and C99 should be used.
                 break;
         }  
     }  
@@ -119,7 +126,7 @@ int main(int argc, char *argv[]){
  * 
  * @return the return code
  */ 
-int connectToHost(SaveInformation saveInformation, Connection connection){
+static int connectToHost(SaveInformation saveInformation, Connection connection){
        
     struct addrinfo hints, *ai;
     memset(&hints, 0, sizeof(hints));
@@ -290,7 +297,7 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
  * @brief prints the calling synopsis of the http client 
  * @return Void
  **/
-void printSynopsis(){
+static void printSynopsis(){
     char *synopsis = "Illegal Arguments given! SYNOPSIS: \nclient [-p PORT] [ -o FILE | -d DIR ] URL\n";
     printf("%s\n", synopsis);
 }
@@ -300,7 +307,7 @@ void printSynopsis(){
  * @param m the message titel
  * @param obj the message
  */ 
-void debugLog(char *m, char* obj){
+static void debugLog(char *m, char* obj){
     printf("DEBUG: '%s': ", m);
     printf("%s\n", obj);
 }
@@ -314,7 +321,7 @@ void debugLog(char *m, char* obj){
  * 
  * POSTCONDITION:  hostName and path is set 
  */ 
-void getHostandPath(char * connectionUrl, char *hostname, char *path){
+static void getHostandPath(char * connectionUrl, char *hostname, char *path){
     // ; / ? : @ = &
     int runningIndex = 0;
     int pathIndex = 0;
@@ -352,7 +359,7 @@ void getHostandPath(char * connectionUrl, char *hostname, char *path){
  * @param saveInformation this struct specifies how the output is saved
  * @param connection the connection information, that includes a port, host and path
  **/
-void createOutputSettings(SaveInformation *saveInformation, Connection connection){
+static void createOutputSettings(SaveInformation *saveInformation, Connection connection){
     
     char *indexFile;
     bool allocated = false;

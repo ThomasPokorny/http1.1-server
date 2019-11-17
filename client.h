@@ -43,45 +43,4 @@ typedef struct SaveInformations {
    bool hasDir;
 } SaveInformation;
 
-/**
- * 
- * @brief prints the calling synopsis of the http client 
- * @return Void
- **/
-void printSynopsis();
-
-/**
- * @brief logs a debug message to stdout
- * @param m the message titel
- * @param obj the message
- */ 
-void debugLog(char *m, char* obj);
-
-/**
- * 
- * PRECONDITION: a valid string that starts with "http://"
- * @param connectionUrl from this url the hostname and file path is determined
- * @param hostName gets set from the connection Url 
- * @param path gets set from the connection Url 
- * POSTCONDITION:  hostName and path is set 
- */ 
-void getHostandPath(char * connectionUrl, char *hostname, char *path);
-
-/**
- * @brief connects to the server, and either saves the response to a file or prints it to stdout ( this information is given in  saveInformation)
- * @param saveInformation hot the output is saved
- * @param connection the connection information, that includes a port, host and path
- * @return the return code
- */ 
-int connectToHost(SaveInformation saveInformation, Connection connection);
-
-/**
- * 
- * @brief generates the file name and directory for the saved file
- * @return Void
- * @param saveInformation this struct specifies how the output is saved
- * @param connection the connection information, that includes a port, host and path
- **/
-void createOutputSettings(SaveInformation *saveInformation, Connection connection);
-
 #endif 
