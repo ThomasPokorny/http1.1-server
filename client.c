@@ -1,5 +1,5 @@
 /********************************************//**
- *  HTTP 1.1 CLIENT 
+ * @mainpage  HTTP 1.1 CLIENT 
  * 
  * @file client.c
  * @author Thomas Robert Pokorny 1527212
@@ -7,9 +7,7 @@
  * @date 4 Nov 2019
  * 
  * @brief the client .c
- * 
  * Calling synopsis:
- * 
  * client [-p PORT] [ -o FILE | -d DIR ] URL
  * 
  ***********************************************/
@@ -29,7 +27,7 @@
 #include <string.h>
 #include <dirent.h>
 #include "util.h"
-#include "client.h"
+#include "client.h" 
 #define _GNU_SOURCE
 
 #define ERROR_EXIT(...) { fprintf(stderr, "ERROR: " __VA_ARGS__); exit(EXIT_FAILURE); }
@@ -38,18 +36,17 @@
 const bool DEBUG = false;
 
 int main(int argc, char *argv[]){
-
+    
     int exitCode = EXIT_SUCCESS; 
     
     char *port = "80"; // the default port
 
-    // structs needed
     Connection connection;
     SaveInformation saveInformation;
     saveInformation.writeToFile = false;
     saveInformation.hasFile     = false;
     saveInformation.hasDir      = false;
-    //  [ -o FILE | -d DIR ]
+    
 
     int opt;
     bool wrongArgument = false; 
@@ -77,7 +74,6 @@ int main(int argc, char *argv[]){
                 //wrongArgument = true;
                 break;   
             default:
-                printf("as");
                 break;
         }  
     }  
@@ -110,12 +106,19 @@ int main(int argc, char *argv[]){
     * 
     ***********************************************/
 
-    connectToHost(saveInformation, connection);
+    exitCode = connectToHost(saveInformation, connection);
 
 
     return exitCode;
 }
 
+/**
+ * @brief connects to the server, and either saves the response to a file or prints it to stdout ( this information is given in  saveInformation)
+ * @param saveInformation hot the output is saved
+ * @param connection the connection information, that includes a port, host and path
+ * 
+ * @return the return code
+ */ 
 int connectToHost(SaveInformation saveInformation, Connection connection){
        
     struct addrinfo hints, *ai;
@@ -291,6 +294,11 @@ void printSynopsis(){
     printf("%s\n", synopsis);
 }
 
+/**
+ * @brief logs a debug message to stdout
+ * @param m the message titel
+ * @param obj the message
+ */ 
 void debugLog(char *m, char* obj){
     printf("DEBUG: '%s': ", m);
     printf("%s\n", obj);
@@ -299,7 +307,11 @@ void debugLog(char *m, char* obj){
 /**
  * 
  * PRECONDITION: a valid string that starts with "http://"
- * @return the hostname for a given http url
+ * @param connectionUrl from this url the hostname and file path is determined
+ * @param hostName gets set from the connection Url : connectionUrl = "http://google.com/..", hostName = "google.com"
+ * @param path gets set from the connection Url : connectionUrl = "http://google.com/a/test/", hostName = "/a/test"
+ * 
+ * POSTCONDITION:  hostName and path is set 
  */ 
 void getHostandPath(char * connectionUrl, char *hostname, char *path){
     // ; / ? : @ = &
@@ -333,7 +345,12 @@ void getHostandPath(char * connectionUrl, char *hostname, char *path){
 }
 
 /**
- */
+ * 
+ * @brief generates the file name and directory for the saved file
+ * @return Void
+ * @param saveInformation this struct specifies how the output is saved
+ * @param connection the connection information, that includes a port, host and path
+ **/
 void createOutputSettings(SaveInformation *saveInformation, Connection connection){
     
     char *indexFile;
@@ -377,7 +394,7 @@ void createOutputSettings(SaveInformation *saveInformation, Connection connectio
     }
 
     saveInformation->fileName = malloc(strlen(filePath));
-    // saveInformation->fileName = filePath;
+    
     strcpy (saveInformation->fileName, filePath);
     free(filePath);
     if(allocated == true)

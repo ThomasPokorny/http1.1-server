@@ -1,18 +1,19 @@
 /********************************************//**
- *  SOME C UTIL FUNCTIO S 
+ *  UTIL FUNCTIONS FOR HTTP 1.1 CLient and Server
  * 
  * @file util.c
  * @author Thomas Robert Pokorny 1527212
  * 
  * @date 4 Nov 2019
  * 
- * @brief util functions implemented
+ * @brief implements useful string util functions 
  * 
  * 
  ***********************************************/
 #include "util.h"
 
-
+/**
+ */ 
 bool startsWith(const char *pre, const char *str)
 {
     size_t lenpre = strlen(pre),
