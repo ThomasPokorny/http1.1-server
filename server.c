@@ -1,5 +1,5 @@
 /********************************************//**
- *  HTTP 1.1 SERVER 
+ * @mainpage HTTP 1.1 SERVER 
  * 
  * @file server.c
  * @author Thomas Robert Pokorny 1527212
@@ -7,9 +7,7 @@
  * @date 4 Nov 2019
  * 
  * @brief the server .c
- * 
  * Calling synopsis:
- * 
  * server [-p PORT] [-i INDEX] DOC_ROOT
  * 
  ***********************************************/
@@ -36,10 +34,11 @@
 #define ERROR_EXIT(...) { fprintf(stderr, "ERROR: " __VA_ARGS__); exit(EXIT_FAILURE); }
 
 /* SET THIS FLAG TO true IF DEBUG MSGs TO sdtout ARE WANTED */ 
-const bool DEBUG = true;
+const bool DEBUG = false;
 
 /* this is the runnig flag, if the flag is 0, the server finishes all ungoing requests and terminates with exit code 0 */
 static volatile int SERVER_RUNNING = 1;
+/* the  REQUEST_RUNNING flag indicates whether or not a client request is currently processed, if the flag is 1 and a signal is received the server finishes the request and terminates afterwards */
 static volatile int REQUEST_RUNNING = 0;
 
 static int sockfd, client_socket_fd;
@@ -77,7 +76,6 @@ int main(int argc, char *argv[]){
                 //wrongArgument = true;
                 break;   
             default:
-                printf("as");
                 break;
         }  
     }  
@@ -104,6 +102,10 @@ int main(int argc, char *argv[]){
     return exitCode;
 }
 
+/**
+ * @brief the server is started, and awaits clients
+ * @param serverConf server configuration: port, index file and docuemtn root
+ */ 
 int startSocket(ServerConf serverConf){
 
     // int sockfd; 
@@ -125,14 +127,14 @@ int startSocket(ServerConf serverConf){
     if (sockfd < 0)
         ERROR_EXIT("socket: %s\n", strerror(errno));
     // release socket after close 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0){
-        ERROR_EXIT("socket bind failed...%s\n", strerror(errno));
-    }
+    int option = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+    
     //BIND
     if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
         ERROR_EXIT("socket SO_REUSEADDR failed...%s\n", strerror(errno));
     } 
-    else
+    else if(DEBUG == true) 
         debugLog("bind", "Socket successfully binded..");
 
 
@@ -141,7 +143,7 @@ int startSocket(ServerConf serverConf){
         ERROR_EXIT("socket listen failed...%s\n", strerror(errno));
         exit(0); 
     } 
-    else
+    else if(DEBUG == true) 
         debugLog("listen", "Socket listening..");
     len = sizeof(cli); 
 
@@ -268,12 +270,24 @@ int startSocket(ServerConf serverConf){
     return 0;
 }
 
+/**
+ * @brief closes open connections to a client of the socket
+ * @param sockFile the receiving socket
+ * @param write_sockFile the out socket file to the client
+ * @param client_socket_fd the client file descriptor
+ */ 
 void closeConnection(FILE *sockfile, FILE *write_sockfile, int client_socket_fd){
     fclose(sockfile); 
     fclose(write_sockfile); 
     close(client_socket_fd); 
 }
 
+/**
+ * @brief sends a invalid header ( 404, 400, 501, ..) to the client
+ * @param write_sockfile the out socket file to the client
+ * @param code the http return code, 404 , 400, 501, ..
+ * @param msg the message: "Not Found", "Not implemented", "Bad Request" , ...
+ */ 
 void sendInvalidHeader(FILE *write_sockfile, char *code, char *msg){
     char *headerLine = calloc(strlen(code) + strlen("HTTP/1.1") + strlen(msg) + 2, sizeof(char));
     strcat(headerLine, "HTTP/1.1 ");
@@ -288,6 +302,11 @@ void sendInvalidHeader(FILE *write_sockfile, char *code, char *msg){
     free(headerLine);
 }
 
+/**
+ * @brief writes a file line by line to the client write socket file
+ * @param write_sockfile the out socket file to the client
+ * @param f the file that is going to be transmitted
+ */ 
 void sendContent(FILE *write_sockfile, FILE *f){
     size_t maxlenght = 256;
     char *line = malloc(maxlenght * sizeof(char));
@@ -299,6 +318,11 @@ void sendContent(FILE *write_sockfile, FILE *f){
     free(line);
 }
 
+/**
+ * @brief writes a valid header to the client socket
+ * @param write_sockfile the out socket file to the client
+ * @param fileSize the filesize that is going to be transmitted
+ */ 
 void sendValidHeader(FILE *write_sockfile, long fileSize){
     char *headerLine = "HTTP/1.1 200 OK";
 
@@ -319,6 +343,9 @@ void sendValidHeader(FILE *write_sockfile, long fileSize){
 
 }
 
+/**
+ * @brief receives signals SIGINT, SIGTERM. if the server is not currently processing a client, the exit() function is called
+ */ 
 void receiveSignal(int i){
     SERVER_RUNNING = 0;
 
@@ -342,6 +369,11 @@ void printSynopsis(){
     printf("%s\n", synopsis);
 }
 
+/**
+ * @brief logs a debug message to stdout
+ * @param m the message titel
+ * @param obj the message
+ */ 
 void debugLog(char *m, char* obj){
     printf("DEBUG: '%s': ", m);
     printf("%s\n", obj);

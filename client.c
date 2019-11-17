@@ -127,8 +127,10 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
     hints.ai_socktype = SOCK_STREAM; // use TCP as transport protocol
 
     int res = getaddrinfo(connection.host, connection.port, &hints, &ai);
-    if (res != 0)
+    if (res != 0){
+        printSynopsis();
         ERROR_EXIT("getaddrinfo: %s\n", gai_strerror(res));
+    }
 
     int sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
     if (sockfd < 0)
@@ -188,12 +190,11 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
             debugLog("saving response into file", saveInformation.fileName);
         }
 
-        printf("the out file %s\n", saveInformation.fileName);
         FILE * outFile = fopen(saveInformation.fileName, "w+");
 
         bool headerChecked = false;
         while (fgets(buf, sizeof(buf), sockfile) != NULL){
-            fputs(buf, stdout);
+            
             if(headerChecked == false){
                 bool isHeaderCorrect = startsWith("HTTP/1.1", buf);
 
@@ -290,7 +291,7 @@ int connectToHost(SaveInformation saveInformation, Connection connection){
  * @return Void
  **/
 void printSynopsis(){
-    char *synopsis = "Illegal Arguments given! SYNOPSIS: \nclient [-p PORT] [ -o FILE | -d DIR ] URL";
+    char *synopsis = "Illegal Arguments given! SYNOPSIS: \nclient [-p PORT] [ -o FILE | -d DIR ] URL\n";
     printf("%s\n", synopsis);
 }
 
